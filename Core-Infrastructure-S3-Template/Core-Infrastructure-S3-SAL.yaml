@@ -1,0 +1,92 @@
+Parameters:
+  BucketName:
+    Type: String
+    Description: The name of the S3 bucket
+    MinLength: 3
+    MaxLength: 63
+    AllowedPattern: ^[a-z0-9.-]+$
+    ConstraintDescription: "Must be a valid S3 bucket name"
+
+Resources:
+  S3TemplateBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      BucketName: !Sub "${BucketName}-${AWS::Region}-${AWS::AccountId}"
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteNonCurrentObjects
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 7
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 3
+            ExpirationInDays: 90
+      Tags:
+        - Key: Name
+          Value: !Sub "${BucketName}-${AWS::Region}-${AWS::AccountId}"
+        - Key: Service
+          Value: S3
+  S3Policy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3TemplateBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: "DenyUnencryptedObjectUploads"
+            Effect: "Deny"
+            Principal: "*"
+            Action: "s3:PutObject"
+            Resource: !Join ["", ["arn:aws:s3:::", !Ref S3TemplateBucket, "/*"]]
+            Condition:
+              StringNotEquals:
+                "s3:x-amz-server-side-encryption": "true"
+          - Sid: "DenyNonHTTPSAccess"
+            Effect: "Deny"
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !Join ["", ["arn:aws:s3:::", !Ref S3TemplateBucket, "/*"]]
+              - !Join ["", ["arn:aws:s3:::", !Ref S3TemplateBucket]]
+            Condition:
+              Bool:
+                "aws:SecureTransport": "false"
+          - Sid: "DenyAccessFromOtherAWSAccounts"
+            Effect: "Deny"
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !Join ["", ["arn:aws:s3:::", !Ref S3TemplateBucket, "/*"]]
+              - !Join ["", ["arn:aws:s3:::", !Ref S3TemplateBucket]]
+            Condition:
+              StringNotEquals:
+                "aws:PrincipalAccount": !Ref "AWS::AccountId"
+          - Sid: "RequireMFAForBucketDeletion"
+            Effect: "Deny"
+            Principal: "*"
+            Action: "s3:DeleteBucket"
+            Resource: !Join ["", ["arn:aws:s3:::", !Ref S3TemplateBucket]]
+            Condition:
+              Bool:
+                "aws:MultiFactorAuthPresent": "false"
+
+Outputs:
+  BucketName:
+    Description: The name of the S3 bucket
+    Value: !Ref S3TemplateBucket
+  BucketArn:
+    Description: The ARN of the S3 bucket
+    Value: !GetAtt S3TemplateBucket.Arn
