@@ -87,6 +87,10 @@ Outputs:
   BucketName:
     Description: The name of the S3 bucket
     Value: !Ref S3TemplateBucket
+    Export:
+      Name: !Sub "${AWS::StackName}-BucketName"
   BucketArn:
     Description: The ARN of the S3 bucket
     Value: !GetAtt S3TemplateBucket.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-BucketArn"
