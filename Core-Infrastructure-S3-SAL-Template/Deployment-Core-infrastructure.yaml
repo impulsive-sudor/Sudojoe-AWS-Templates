@@ -1,4 +1,4 @@
-template-file-path: Core-Infrastructure-S3/Core-Infrastructure-S3-SAL.yaml
+template-file-path: Core-Infrastructure-S3-SAL-Template/Core-Infrastructure-S3-SAL.yaml
 parameters:
   BucketName: Bucketname-for-SAL
 tags:

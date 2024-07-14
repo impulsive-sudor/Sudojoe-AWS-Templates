@@ -1,0 +1,97 @@
+Parameters:
+  KeyAdmin:
+    Type: String
+    Description: The IAM user who can administer the KMS key
+  KeyUser:
+    Type: String
+    Description: The IAM user who can use the KMS key
+
+Description: >
+  This template deploys a KMS key for use in other templates.
+
+Resources:
+  CoreKMSKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: KMS key as part of the core infrastructure
+      BypassPolicyLockoutSafetyCheck: false
+      KeyUsage: ENCRYPT_DECRYPT
+      KeySpec: SYMMETRIC_DEFAULT
+      MultiRegion: false
+      Origin: AWS_KMS
+      Enabled: true
+      EnableKeyRotation: true
+      RotationPeriodInDays: 365
+      PendingWindowInDays: 24
+      KeyPolicy:
+        Version: 2012-10-17
+        Id: key-default-1
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action: kms:*
+            Resource: "*"
+          - Sid: Allow access for Key Administrators
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:user/${KeyAdmin}"
+            Action:
+              - 'kms:Create*'
+              - 'kms:Describe*'
+              - 'kms:Enable*'
+              - 'kms:List*'
+              - 'kms:Put*'
+              - 'kms:Update*'
+              - 'kms:Revoke*'
+              - 'kms:Disable*'
+              - 'kms:Get*'
+              - 'kms:Delete*'
+              - 'kms:TagResource'
+              - 'kms:UntagResource'
+              - 'kms:ScheduleKeyDeletion'
+              - 'kms:CancelKeyDeletion'
+              - 'kms:RotateKeyOnDemand'
+            Resource: "*"
+          - Sid: Allow use of the key
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:user/${KeyUser}"
+            Action:
+              - 'kms:Encrypt'
+              - 'kms:Decrypt'
+              - 'kms:ReEncrypt*'
+              - 'kms:GenerateDataKey*'
+              - 'kms:DescribeKey'
+            Resource: "*"
+          - Sid: Allow attachment of persistent resources
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:user/${KeyUser}"
+            Action:
+              - 'kms:CreateGrant'
+              - 'kms:ListGrants'
+              - 'kms:RevokeGrant'
+            Resource: "*"
+            Condition:
+              Bool:
+                kms:GrantIsForAWSResource: true
+  Alias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/CoreKMSKey
+      TargetKeyId: !Ref CoreKMSKey
+
+Outputs:
+  KMSKeyArn:
+    Description: The ARN of the KMS key
+    Value: !Ref CoreKMSKey
+    Export:
+      Name: !Sub "${AWS::StackName}-KMSKeyArn"
+  KMSKeyAlias:
+    Description: The alias of the KMS key
+    Value: !Ref Alias
+    Export:
+      Name: !Sub "${AWS::StackName}-KMSKeyAlias"
+  
